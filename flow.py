@@ -1,7 +1,5 @@
 from prefect import flow, task
 from prefect.tasks import task_input_hash
-from prefect.deployments import Deployment
-from prefect.orion.schemas.schedules import CronSchedule
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import window, col, min, max, first, last, from_json, expr, to_timestamp, concat
 from pyspark.sql.types import StructType, StringType, DoubleType
