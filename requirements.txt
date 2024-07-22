@@ -1,0 +1,2 @@
+prefect==2.18.3
+pyspark==3.4.3
