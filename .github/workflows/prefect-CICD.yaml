@@ -31,10 +31,10 @@ jobs:
         env:
           PREFECT_API_URL: ${{ secrets.PREFECT_API_URL }}
           PREFECT_DEFAULT_DOCKER_BUILD_NAMESPACE: ${{ secrets.PREFECT_DOCKER_NAMESPACE }}
-          TOPIC_NAME: ${{ vars.TOPIC_NAME }} 
           KAFKA_URL: ${{ secrets.KAFKA_URL }} 
           SPARK_URL: ${{ secrets.SPARK_URL }} 
-          MINIO_URL: ${{ secrets.MINIO_URL }} 
+          TICK_TOPIC: ${{ vars.TICK_TOPIC }} 
+          MIN_TOPIC: ${{ vars.MIN_TOPIC }} 
         run: |
           pip install -r requirements.txt
           python deploy.py
