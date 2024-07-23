@@ -94,7 +94,16 @@ def stop_spark_session(spark):
     logging.info("Spark session stopped.")
 
 @flow
-def hun_tick2min_flow(spark_url: str, kafka_url: str, tick_topic: str, min_topic: str):
+def hun_tick2min_flow():
+
+    log_level = os.getenv('LOG_LEVEL', 'INFO')
+    logging.basicConfig(level=log_level, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    
+    spark_url = os.getenv('SPARK_URL', 'default_url')
+    kafka_url = os.getenv('KAFKA_URL', 'default_url')
+    tick_topic = os.getenv('TICK_TOPIC', 'default_tick')
+    min_topic = os.getenv('MIN_TOPIC', 'default_min')
+
     spark = create_spark_session(spark_url)
     spark.sparkContext.setLogLevel("WARN")
 
@@ -124,17 +133,5 @@ def hun_tick2min_flow(spark_url: str, kafka_url: str, tick_topic: str, min_topic
     logging.info("Flow completed.")
 
 if __name__ == "__main__":
-    log_level = os.getenv('LOG_LEVEL', 'INFO')
-    logging.basicConfig(level=log_level, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-    spark_url = os.getenv('SPARK_URL', 'default_url')
-    kafka_url = os.getenv('KAFKA_URL', 'default_url')
-    tick_topic = os.getenv('TICK_TOPIC', 'default_tick')
-    min_topic = os.getenv('MIN_TOPIC', 'default_min')
-
-    hun_tick2min_flow(
-        spark_url=spark_url, 
-        kafka_url=kafka_url, 
-        tick_topic=tick_topic, 
-        min_topic=min_topic
-        )
+    hun_tick2min_flow()
