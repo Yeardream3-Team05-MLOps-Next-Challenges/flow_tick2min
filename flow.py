@@ -104,6 +104,12 @@ def hun_tick2min_flow():
     tick_topic = os.getenv('TICK_TOPIC', 'default_tick')
     min_topic = os.getenv('MIN_TOPIC', 'default_min')
 
+
+    logging.info(spark_url)
+    logging.info(kafka_url)
+    logging.info(tick_topic)
+    logging.info(min_topic)
+
     spark = create_spark_session(spark_url)
     spark.sparkContext.setLogLevel("WARN")
 
