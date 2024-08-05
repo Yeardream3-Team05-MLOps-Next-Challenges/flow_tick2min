@@ -1,5 +1,16 @@
 FROM prefecthq/prefect:2.18.3-python3.10
 
+
+ARG KAFKA_URL
+ARG SPARK_URL
+ARG TICK_TOPIC
+ARG MIN_TOPIC
+
+ENV KAFKA_URL=${KAFKA_URL}
+ENV SPARK_URL=${SPARK_URL}
+ENV TICK_TOPIC=${TICK_TOPIC}
+ENV MIN_TOPIC=${MIN_TOPIC}
+
 COPY requirements.txt .
 
 RUN apt-get update && apt-get install -y openjdk-17-jdk procps \
