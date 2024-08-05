@@ -1,4 +1,4 @@
-from prefect import flow, task
+from prefect import flow, task, get_run_logger
 from prefect.tasks import task_input_hash
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import window, col, min, max, first, last, from_json, expr, to_timestamp, concat
@@ -96,19 +96,21 @@ def stop_spark_session(spark):
 @flow
 def hun_tick2min_flow():
 
-    log_level = os.getenv('LOG_LEVEL', 'INFO')
-    logging.basicConfig(level=log_level, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    #log_level = os.getenv('LOG_LEVEL', 'INFO')
+    #logging.basicConfig(level=log_level, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     
+    logger = get_run_logger()
+
     spark_url = os.getenv('SPARK_URL', 'default_url')
     kafka_url = os.getenv('KAFKA_URL', 'default_url')
     tick_topic = os.getenv('TICK_TOPIC', 'default_tick')
     min_topic = os.getenv('MIN_TOPIC', 'default_min')
 
 
-    logging.info(spark_url)
-    logging.info(kafka_url)
-    logging.info(tick_topic)
-    logging.info(min_topic)
+    logger.info(spark_url)
+    logger.info(kafka_url)
+    logger.info(tick_topic)
+    logger.info(min_topic)
 
     spark = create_spark_session(spark_url)
     spark.sparkContext.setLogLevel("WARN")
