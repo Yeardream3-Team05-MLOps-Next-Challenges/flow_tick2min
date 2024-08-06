@@ -1,7 +1,7 @@
 from prefect import flow, task, get_run_logger
 from prefect.tasks import task_input_hash
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import window, col, min, max, first, last, from_json, expr, to_timestamp, concat
+from pyspark.sql.functions import window, col, min, max, first, last, from_json, expr, to_timestamp, concat, lit
 from pyspark.sql.types import StructType, StringType, DoubleType
 
 import os
@@ -35,8 +35,8 @@ def read_stream(spark, kafka_url, tick_topic, schema):
     df = df.withColumn("timestamp", to_timestamp(concat(col("날짜"), col("현재시간")), "yyyyMMddHHmmss")) \
         .withColumn("price", col("현재가").cast(DoubleType()))
 
-    df = df.withColumn("candle", '5m')
-
+    df = df.withColumn("candle", lit("5m")) 
+    
     return df
 
 @task(name="Aggregate OHLC")
