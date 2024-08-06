@@ -9,7 +9,7 @@ import logging
 from datetime import timedelta, datetime
 import pytz
 
-@task(name="Create Spark Session", cache_key_fn=task_input_hash, cache_expiration=timedelta(hours=1))
+#@task(name="Create Spark Session", cache_key_fn=task_input_hash, cache_expiration=timedelta(hours=1))
 def create_spark_session(spark_url):
     return SparkSession \
         .builder \
@@ -113,7 +113,7 @@ def hun_tick2min_flow():
     logger.info(min_topic)
 
     spark = create_spark_session(spark_url)
-    spark.sparkContext.setLogLevel("WARN")
+    #spark.sparkContext.setLogLevel("WARN")
 
     schema = StructType() \
         .add("종목코드", StringType()) \
