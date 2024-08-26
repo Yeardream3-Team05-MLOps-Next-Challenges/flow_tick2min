@@ -23,6 +23,6 @@ if __name__ == "__main__":
                        "MIN_TOPIC": os.getenv("MIN_TOPIC"),
                        },
         ),
-        schedule=(CronSchedule(cron="0 8 * * *", timezone="Asia/Seoul")),
+        schedule=(CronSchedule(cron="0 8 * * 1-5", timezone="Asia/Seoul")),
         build=True,
     )
