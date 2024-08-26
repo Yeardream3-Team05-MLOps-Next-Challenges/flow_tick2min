@@ -2,8 +2,7 @@ import os
 
 from prefect import flow
 from prefect.deployments import DeploymentImage
-from prefect_docker.infrastructure import DockerContainer
-from prefect_docker.images import DockerImage
+from prefect_docker import DockerContainer, DockerImage
 from prefect.client.schemas.schedules import CronSchedule
 
 from flow import hun_tick2min_flow
