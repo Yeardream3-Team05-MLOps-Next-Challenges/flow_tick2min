@@ -1,4 +1,5 @@
 prefect==2.18.3
+prefect-docker==0.5.4
 requests==2.31.0
 pyspark==3.4.3
 griffe==0.48.0
