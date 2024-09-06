@@ -123,8 +123,9 @@ def hun_tick2min_flow():
         .add("날짜", StringType())
 
     df_stream = read_stream(spark, kafka_url, tick_topic, schema)
-    ohlc_df = add_candle_info(ohlc_df)
-    ohlc_df_with_cadle = aggregate_ohlc(df_stream)
+    ohlc_df = aggregate_ohlc(df_stream)
+    ohlc_df_with_cadle = add_candle_info(ohlc_df)
+
 
     kafka_query = stream_to_kafka(ohlc_df_with_cadle, kafka_url, min_topic)
     console_query = stream_to_console(ohlc_df_with_cadle)
