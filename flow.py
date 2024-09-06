@@ -35,9 +35,10 @@ def read_stream(spark, kafka_url, tick_topic, schema):
     df = df.withColumn("timestamp", to_timestamp(concat(col("날짜"), col("현재시간")), "yyyyMMddHHmmss")) \
         .withColumn("price", col("현재가").cast(DoubleType()))
 
-    df = df.withColumn("candle", lit("5m")) 
-    
     return df
+
+def add_candle_info(df):
+    return df.withColumn("candle", lit("5m"))
 
 @task(name="Aggregate OHLC")
 def aggregate_ohlc(df):
@@ -122,10 +123,11 @@ def hun_tick2min_flow():
         .add("날짜", StringType())
 
     df_stream = read_stream(spark, kafka_url, tick_topic, schema)
-    ohlc_df = aggregate_ohlc(df_stream)
+    ohlc_df = add_candle_info(ohlc_df)
+    ohlc_df_with_cadle = aggregate_ohlc(df_stream)
 
-    kafka_query = stream_to_kafka(ohlc_df, kafka_url, min_topic)
-    console_query = stream_to_console(ohlc_df)
+    kafka_query = stream_to_kafka(ohlc_df_with_cadle, kafka_url, min_topic)
+    console_query = stream_to_console(ohlc_df_with_cadle)
 
     termination_time = calculate_termination_time()
     
