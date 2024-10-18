@@ -29,8 +29,12 @@ jobs:
     - name: Build Docker image
       run: docker buildx build --platform linux/${{ matrix.arch }} --load -t myapp:latest .
 
-    - name: Run Docker container
-      run:  |
-          docker run --name myapp_test myapp:latest pytest tests/test_flow.py --maxfail=5 --disable-warnings -v || true
+    - name: Run Docker container and Run Tests
+      run: |
+          docker run --name myapp_test myapp:latest pytest tests/test_flow.py --disable-warnings -v
           docker logs myapp_test 
-          docker rm -f myapp_test
+      continue-on-error: false 
+
+    - name: Clean up Docker container
+      if: always()   
+      run: docker rm -f myapp_test
