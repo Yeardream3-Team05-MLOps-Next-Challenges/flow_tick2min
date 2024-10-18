@@ -30,4 +30,4 @@ jobs:
       run: docker buildx build --platform linux/${{ matrix.arch }} --load -t myapp:latest .
 
     - name: Run Docker container
-      run: docker run -d myapp:latest
+      run: docker run -d myapp:latest pytest tests/test_hun_tick2min.py
