@@ -16,6 +16,7 @@ COPY pyproject.toml poetry.lock* ./
 RUN apt-get update && apt-get install -y openjdk-17-jdk procps \
     && python -m pip install --upgrade pip\
     && pip install --no-cache-dir poetry \
+    && poetry config virtualenvs.create false \
     && poetry install --no-root \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
@@ -26,4 +27,4 @@ COPY . /opt/prefect/flows
 
 WORKDIR /opt/prefect/flows
 
-CMD ["poetry", "run", "python", "./flow.py"]
+CMD ["python", "./flow.py"]
