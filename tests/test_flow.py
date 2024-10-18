@@ -6,10 +6,10 @@ import os
 import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from hun_tick2min import create_spark_session, read_stream, aggregate_ohlc, hun_tick2min_flow
+from flow import create_spark_session, read_stream, aggregate_ohlc, hun_tick2min_flow
 
 # Spark 세션 테스트
-@patch('hun_tick2min.SparkSession.builder.getOrCreate')
+@patch('flow.SparkSession.builder.getOrCreate')
 def test_create_spark_session(mock_spark):
     mock_spark.return_value = MagicMock(SparkSession)
     spark_url = "spark://localhost:7077"
@@ -19,7 +19,7 @@ def test_create_spark_session(mock_spark):
     assert spark is not None
 
 # Kafka 스트리밍 테스트
-@patch('hun_tick2min.SparkSession.readStream')
+@patch('flow.SparkSession.readStream')
 def test_read_stream(mock_read_stream):
     mock_df = MagicMock()
     mock_read_stream.return_value = mock_df
@@ -39,16 +39,16 @@ def test_read_stream(mock_read_stream):
     mock_read_stream.assert_called_once()
 
 # Flow 테스트
-@patch('hun_tick2min.create_spark_session')
-@patch('hun_tick2min.read_stream')
-@patch('hun_tick2min.aggregate_ohlc')
-@patch('hun_tick2min.add_candle_info')
-@patch('hun_tick2min.stream_to_kafka')
-@patch('hun_tick2min.stream_to_console')
-@patch('hun_tick2min.calculate_termination_time')
-@patch('hun_tick2min.await_termination')
-@patch('hun_tick2min.stop_streaming')
-@patch('hun_tick2min.stop_spark_session')
+@patch('flow.create_spark_session')
+@patch('flow.read_stream')
+@patch('flow.aggregate_ohlc')
+@patch('flow.add_candle_info')
+@patch('flow.stream_to_kafka')
+@patch('flow.stream_to_console')
+@patch('flow.calculate_termination_time')
+@patch('flow.await_termination')
+@patch('flow.stop_streaming')
+@patch('flow.stop_spark_session')
 def test_hun_tick2min_flow(mock_create_spark, mock_read_stream, mock_aggregate_ohlc, 
                            mock_add_candle, mock_stream_kafka, mock_stream_console, 
                            mock_calculate_termination, mock_await_termination,
