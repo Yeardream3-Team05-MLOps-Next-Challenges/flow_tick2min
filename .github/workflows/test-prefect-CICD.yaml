@@ -32,5 +32,5 @@ jobs:
     - name: Run Docker container
       run:  |
           docker run -d myapp:latest pytest tests/test_hun_tick2min.py --maxfail=5 --disable-warnings -v || true
-          docker logs myapp_test 
-          docker rm -f myapp_test
+          docker logs myapp
+          docker rm -f myapp
