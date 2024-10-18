@@ -26,4 +26,4 @@ COPY . /opt/prefect/flows
 
 WORKDIR /opt/prefect/flows
 
-CMD ["python", "./flow.py"]
+CMD ["poetry", "run", "python", "./flow.py"]
