@@ -1,16 +1,16 @@
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
-from pyspark.sql import SparkSession
-from pyspark.sql.types import StructType, StringType, DoubleType
-from pyspark.sql.streaming import StreamingQuery
-import os
-import sys
-import asyncio
-
-from prefect import flow, task, get_run_logger
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from flow import create_spark_session, read_stream, aggregate_ohlc, hun_tick2min_flow
+from unittest.mock import MagicMock, patch
+from pyspark.sql import SparkSession, DataFrame
+from pyspark.sql.types import StructType, StringType
+from src.logic import (
+    create_spark_session_logic,
+    read_stream_logic,
+    add_candle_info_logic,
+    aggregate_ohlc_logic,
+    calculate_termination_time_logic
+)
+from datetime import datetime, timedelta
+import pytz
 
 # Schema fixture
 @pytest.fixture
@@ -25,12 +25,15 @@ def schema():
 @pytest.fixture
 def mock_spark():
     mock_session = MagicMock(spec=SparkSession)
+    
+    # Mock streaming context
     mock_streams = MagicMock()
     mock_session.streams = mock_streams
     mock_streams.active = []
+    mock_streams.awaitAnyTermination = MagicMock()
     
     # Mock readStream
-    mock_df = MagicMock()
+    mock_df = MagicMock(spec=DataFrame)
     mock_session.readStream.return_value = mock_df
     mock_df.format.return_value = mock_df
     mock_df.option.return_value = mock_df
@@ -41,91 +44,78 @@ def mock_spark():
     
     return mock_session
 
-class TestSparkFlow:
+class TestLogicFunctions:
     
-    def test_create_spark_session(self):
-        with patch('pyspark.sql.SparkSession.builder') as mock_builder:
-            mock_session = MagicMock(spec=SparkSession)
-            mock_builder.appName.return_value.master.return_value.config.return_value.config.return_value.getOrCreate.return_value = mock_session
-            
-            spark = create_spark_session("spark://test:7077")
-            assert isinstance(spark, SparkSession)
-            mock_builder.appName.assert_called_with("tick_to_min")
-
-    def test_read_stream(self, mock_spark, schema):
-        from flow import read_stream
-        # Prefect task decorator를 무시하고 직접 함수 호출
-        read_stream_fn = read_stream.fn  # Prefect task의 원본 함수 접근
+    @patch('pyspark.sql.SparkSession.builder')
+    def test_create_spark_session_logic(self, mock_builder):
+        """Spark 세션 생성 로직 테스트"""
+        spark_url = "spark://test:7077"
+        mock_session = MagicMock(spec=SparkSession)
+        mock_builder.appName.return_value.master.return_value.config.return_value.config.return_value.getOrCreate.return_value = mock_session
         
-        result = read_stream_fn(mock_spark, "kafka:9092", "test_topic", schema)
-        assert result is not None
-        mock_spark.readStream.format.assert_called_with("kafka")
-
-    def test_aggregate_ohlc(self):
-        from flow import aggregate_ohlc
-        # Prefect task decorator를 무시하고 직접 함수 호출
-        aggregate_ohlc_fn = aggregate_ohlc.fn
-
-        mock_df = MagicMock()
+        spark = create_spark_session_logic(spark_url)
+        
+        assert spark == mock_session
+        mock_builder.appName.assert_called_with("tick_to_min")
+        mock_builder.master.assert_called_with(spark_url)
+        mock_builder.config.assert_any_call('spark.jars.packages', 'org.apache.spark:spark-sql-kafka-0-10_2.12:3.4.3')
+        mock_builder.config.assert_any_call('spark.sql.streaming.checkpointLocation', '/tmp/checkpoint/tick_to_min')
+    
+    def test_add_candle_info_logic(self, mock_spark):
+        """candle 컬럼 추가 로직 테스트"""
+        mock_df = MagicMock(spec=DataFrame)
+        mock_df.withColumn.return_value = mock_df
+        
+        result = add_candle_info_logic(mock_df)
+        
+        mock_df.withColumn.assert_called_with("candle", MagicMock(lit="5m"))
+        assert result == mock_df
+    
+    def test_aggregate_ohlc_logic(self, mock_spark):
+        """OHLC 집계 로직 테스트"""
+        mock_df = MagicMock(spec=DataFrame)
         mock_df.withWatermark.return_value = mock_df
         mock_df.groupBy.return_value = mock_df
         mock_df.agg.return_value = mock_df
         
-        result = aggregate_ohlc_fn(mock_df)
-        assert result is not None
+        result = aggregate_ohlc_logic(mock_df)
+        
         mock_df.withWatermark.assert_called_once_with("timestamp", "10 seconds")
-
-    def test_stream_to_kafka(self):
-        from flow import stream_to_kafka
-        # Prefect task decorator를 무시하고 직접 함수 호출
-        stream_to_kafka_fn = stream_to_kafka.fn
+        mock_df.groupBy.assert_called_once_with(window(col("timestamp"), "5 minutes"), col("종목코드"))
+        mock_df.agg.assert_called_once()
+        assert result == mock_df
+    
+    def test_calculate_termination_time_logic_before_end(self):
+        """종료 시간 계산 로직 테스트 (현재 시간이 오후 8시 이전)"""
+        kr_tz = pytz.timezone('Asia/Seoul')
+        mock_now = kr_tz.localize(datetime(2024, 10, 19, 19, 30, 0))
         
-        mock_df = MagicMock()
-        mock_df.selectExpr.return_value = mock_df
-        mock_df.writeStream.return_value = mock_df
-        mock_df.outputMode.return_value = mock_df
-        mock_df.format.return_value = mock_df
-        mock_df.option.return_value = mock_df
-        mock_df.start.return_value = MagicMock(spec=StreamingQuery)
-        
-        result = stream_to_kafka_fn(mock_df, "kafka:9092", "test_topic")
-        assert result is not None
-        mock_df.format.assert_called_with("kafka")
-
-    def test_stream_to_console(self):
-        from flow import stream_to_console
-        # Prefect task decorator를 무시하고 직접 함수 호출
-        stream_to_console_fn = stream_to_console.fn
-        
-        mock_df = MagicMock()
-        mock_df.writeStream.return_value = mock_df
-        mock_df.outputMode.return_value = mock_df
-        mock_df.format.return_value = mock_df
-        mock_df.start.return_value = MagicMock(spec=StreamingQuery)
-        
-        result = stream_to_console_fn(mock_df)
-        assert result is not None
-        mock_df.format.assert_called_with("console")
-
-    @patch('prefect.get_run_logger')
-    def test_hun_tick2min_flow(self, mock_logger, mock_spark):
-        test_env = {
-            'SPARK_URL': 'spark://test:7077',
-            'KAFKA_URL': 'kafka:9092',
-            'TICK_TOPIC': 'test_tick',
-            'MIN_TOPIC': 'test_min'
-        }
-        
-        with patch.dict(os.environ, test_env), \
-             patch('flow.create_spark_session', return_value=mock_spark), \
-             patch('flow.read_stream.fn', return_value=MagicMock()), \
-             patch('flow.aggregate_ohlc.fn', return_value=MagicMock()), \
-             patch('flow.stream_to_kafka.fn', return_value=MagicMock()), \
-             patch('flow.stream_to_console.fn', return_value=MagicMock()), \
-             patch('flow.calculate_termination_time.fn', return_value=1), \
-             patch('flow.await_termination.fn'), \
-             patch('flow.stop_streaming.fn'), \
-             patch('flow.stop_spark_session.fn'):
+        with patch('src.logic.datetime') as mock_datetime:
+            mock_datetime.now.return_value = mock_now
+            termination_seconds = calculate_termination_time_logic(current_time=mock_now)
             
-            hun_tick2min_flow()
-            mock_logger.return_value.info.assert_called()
+            expected_seconds = (mock_now.replace(hour=20, minute=0, second=0, microsecond=0) - mock_now).total_seconds()
+            assert termination_seconds == expected_seconds
+    
+    def test_calculate_termination_time_logic_after_end(self):
+        """종료 시간 계산 로직 테스트 (현재 시간이 오후 8시 이후)"""
+        kr_tz = pytz.timezone('Asia/Seoul')
+        mock_now = kr_tz.localize(datetime(2024, 10, 19, 20, 30, 0))
+        
+        with patch('src.logic.datetime') as mock_datetime:
+            mock_datetime.now.return_value = mock_now
+            termination_seconds = calculate_termination_time_logic(current_time=mock_now)
+            
+            expected_end_time = mock_now.replace(hour=20, minute=0, second=0, microsecond=0) + timedelta(days=1)
+            expected_seconds = (expected_end_time - mock_now).total_seconds()
+            assert termination_seconds == expected_seconds
+    
+    def test_read_stream_logic(self, mock_spark, schema):
+        """Kafka 스트림 읽기 로직 테스트"""
+        result = read_stream_logic(mock_spark, "kafka:9092", "test_topic", schema)
+        
+        mock_spark.readStream.format.assert_called_with("kafka")
+        mock_spark.readStream.option.assert_any_call("kafka.bootstrap.servers", "kafka:9092")
+        mock_spark.readStream.option.assert_any_call("subscribe", "test_topic")
+        mock_spark.readStream.load.assert_called_once()
+        assert result == mock_spark.readStream.load.return_value.selectExpr.return_value.select.return_value.withColumn.return_value
