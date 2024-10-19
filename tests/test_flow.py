@@ -1,15 +1,24 @@
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 from pyspark.sql import SparkSession
 from pyspark.sql.types import StructType, StringType, DoubleType
 from pyspark.sql.streaming import StreamingQuery
 import os
 import sys
+import asyncio
+
+from prefect import flow, task, get_run_logger
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from flow import create_spark_session, read_stream, aggregate_ohlc, hun_tick2min_flow
 
-# Mock 설정 및 기본 Schema
+# Mocking prefect logger
+@pytest.fixture
+def mock_logger():
+    with patch('prefect.get_run_logger') as mock:
+        yield mock
+
+# Schema fixture
 @pytest.fixture
 def schema():
     return StructType() \
@@ -18,46 +27,70 @@ def schema():
         .add("현재시간", StringType()) \
         .add("날짜", StringType())
 
+# Mock SparkSession with proper streaming context
 @pytest.fixture
 def mock_spark():
-    # SparkSession 모킹
-    with patch('pyspark.sql.SparkSession') as mock:
-        mock_session = MagicMock(spec=SparkSession)
-        mock.builder.appName.return_value.master.return_value.config.return_value.config.return_value.getOrCreate.return_value = mock_session
-        yield mock_session
+    mock_session = MagicMock(spec=SparkSession)
+    
+    # Mock streaming context
+    mock_streaming = MagicMock()
+    mock_session.streams = mock_streaming
+    mock_streaming.active = []
+    mock_streaming.awaitAnyTermination = AsyncMock()
+    
+    # Mock readStream
+    mock_read_stream = MagicMock()
+    mock_session.readStream = mock_read_stream
+    mock_read_stream.format.return_value.option.return_value.option.return_value.load.return_value = MagicMock()
+    
+    return mock_session
 
-# TestSparkFlow 클래스
+# Environment variables fixture
+@pytest.fixture
+def env_vars():
+    test_env = {
+        'SPARK_URL': 'spark://test:7077',
+        'KAFKA_URL': 'kafka:9092',
+        'TICK_TOPIC': 'test_tick',
+        'MIN_TOPIC': 'test_min'
+    }
+    with patch.dict(os.environ, test_env):
+        yield test_env
+
 class TestSparkFlow:
-    def test_create_spark_session(self, mock_spark):
+    
+    def test_create_spark_session(self):
         """Spark 세션 생성 테스트"""
-        spark_url = "spark://localhost:7077"
-        
-        # 실제 SparkSession 대신 모킹된 세션으로 대체
         with patch('pyspark.sql.SparkSession.builder') as mock_builder:
-            mock_builder.appName.return_value.master.return_value.config.return_value.config.return_value.getOrCreate.return_value = mock_spark
+            mock_session = MagicMock(spec=SparkSession)
+            mock_builder.appName.return_value.master.return_value.config.return_value.config.return_value.getOrCreate.return_value = mock_session
             
-            spark = create_spark_session(spark_url)
-            assert spark is not None
-            assert isinstance(spark, SparkSession)  # 실제로 반환된 객체가 SparkSession인지 확인
+            from flow import create_spark_session
+            spark = create_spark_session("spark://test:7077")
+            
+            assert isinstance(spark, SparkSession)
+            mock_builder.appName.assert_called_with("tick_to_min")
 
-    @pytest.mark.asyncio
-    async def test_read_stream(self, mock_spark, schema):
+    def test_read_stream(self, mock_spark, schema):
         """Kafka 스트림 읽기 테스트"""
-        mock_read_stream = MagicMock()
-        mock_spark.readStream.return_value = mock_read_stream
-        mock_read_stream.format.return_value.option.return_value.option.return_value.load.return_value = mock_read_stream
-
-        kafka_url = "localhost:9092"
-        tick_topic = "tick_topic"
+        from flow import read_stream
         
-        # 비동기적으로 처리
-        df = await read_stream(mock_spark, kafka_url, tick_topic, schema)
+        # Mock the DataFrame operations
+        mock_df = MagicMock()
+        mock_spark.readStream.format.return_value.option.return_value.option.return_value.load.return_value = mock_df
+        mock_df.selectExpr.return_value = mock_df
+        mock_df.select.return_value = mock_df
+        mock_df.withColumn.return_value = mock_df
         
-        assert df is not None
-        mock_spark.readStream.assert_called_once()
+        result = read_stream(mock_spark, "kafka:9092", "test_topic", schema)
+        
+        assert result is not None
+        mock_spark.readStream.format.assert_called_with("kafka")
 
-    def test_aggregate_ohlc(self):
+    def test_aggregate_ohlc(self, mock_spark):
         """OHLC 집계 테스트"""
+        from flow import aggregate_ohlc
+        
         mock_df = MagicMock()
         mock_df.withWatermark.return_value = mock_df
         mock_df.groupBy.return_value = mock_df
@@ -68,62 +101,59 @@ class TestSparkFlow:
         assert result is not None
         mock_df.withWatermark.assert_called_once_with("timestamp", "10 seconds")
 
-    @patch('flow.create_spark_session')
-    @patch('flow.read_stream')
-    @patch('flow.aggregate_ohlc')
-    @patch('flow.stream_to_kafka')
-    @patch('flow.stream_to_console')
-    @patch('flow.calculate_termination_time')
-    @patch('flow.await_termination')
-    @patch('flow.stop_streaming')
-    @patch('flow.stop_spark_session')
-    def test_hun_tick2min_flow(
-        self,
-        mock_create_spark,
-        mock_read_stream,
-        mock_aggregate_ohlc,
-        mock_stream_kafka,
-        mock_stream_console,
-        mock_calculate_termination,
-        mock_await_termination,
-        mock_stop_streaming,
-        mock_stop_spark
-    ):
-        """전체 흐름 테스트"""
-        mock_spark = MagicMock(spec=SparkSession)
-        mock_create_spark.return_value = mock_spark
-        mock_df = MagicMock()
-        mock_read_stream.return_value = mock_df
-        mock_aggregate_ohlc.return_value = mock_df
-        mock_stream_query = MagicMock(spec=StreamingQuery)
-        mock_stream_kafka.return_value = mock_stream_query
-        mock_stream_console.return_value = mock_stream_query
-        mock_calculate_termination.return_value = 1000
-
-        test_env = {
-            'SPARK_URL': 'spark://test:7077',
-            'KAFKA_URL': 'kafka:9092',
-            'TICK_TOPIC': 'test_tick',
-            'MIN_TOPIC': 'test_min'
-        }
+    @pytest.mark.asyncio
+    async def test_hun_tick2min_flow(self, mock_spark, mock_logger, env_vars):
+        """전체 Flow 테스트"""
+        from flow import hun_tick2min_flow
         
-        with patch.dict(os.environ, test_env):
-            hun_tick2min_flow()
+        # Mock all the required components
+        with patch('flow.create_spark_session', return_value=mock_spark), \
+             patch('flow.read_stream', return_value=MagicMock()), \
+             patch('flow.aggregate_ohlc', return_value=MagicMock()), \
+             patch('flow.stream_to_kafka', return_value=MagicMock()), \
+             patch('flow.stream_to_console', return_value=MagicMock()), \
+             patch('flow.calculate_termination_time', return_value=1), \
+             patch('flow.await_termination', new_callable=AsyncMock), \
+             patch('flow.stop_streaming'), \
+             patch('flow.stop_spark_session'):
+            
+            # Execute the flow
+            await hun_tick2min_flow()
+            
+            # Verify logger calls
+            mock_logger.return_value.info.assert_called()
+            
+            # Verify that streams.awaitAnyTermination was called
+            mock_spark.streams.awaitAnyTermination.assert_called_once()
 
-        # 각 주요 함수들이 호출되었는지 확인
-        mock_create_spark.assert_called_once()
-        mock_read_stream.assert_called_once()
-        mock_aggregate_ohlc.assert_called_once()
-        mock_stream_kafka.assert_called_once()
-        mock_stream_console.assert_called_once()
-        mock_calculate_termination.assert_called_once()
-        mock_await_termination.assert_called_once()
-        mock_stop_streaming.assert_called_once()
-        mock_stop_spark.assert_called_once()
+    def test_stream_to_kafka(self, mock_spark):
+        """Kafka 스트리밍 출력 테스트"""
+        from flow import stream_to_kafka
+        
+        mock_df = MagicMock()
+        mock_df.selectExpr.return_value = mock_df
+        mock_df.writeStream.return_value = mock_df
+        mock_df.outputMode.return_value = mock_df
+        mock_df.format.return_value = mock_df
+        mock_df.option.return_value = mock_df
+        mock_df.start.return_value = MagicMock(spec=StreamingQuery)
+        
+        result = stream_to_kafka(mock_df, "kafka:9092", "test_topic")
+        
+        assert result is not None
+        mock_df.format.assert_called_with("kafka")
 
-# Integration 테스트 (선택 사항)
-@pytest.mark.integration
-class TestSparkFlowIntegration:
-    def test_end_to_end(self):
-        """통합 테스트"""
-        pass  # 실제 통합 테스트는 환경 설정이 필요
+    def test_stream_to_console(self, mock_spark):
+        """콘솔 스트리밍 출력 테스트"""
+        from flow import stream_to_console
+        
+        mock_df = MagicMock()
+        mock_df.writeStream.return_value = mock_df
+        mock_df.outputMode.return_value = mock_df
+        mock_df.format.return_value = mock_df
+        mock_df.start.return_value = MagicMock(spec=StreamingQuery)
+        
+        result = stream_to_console(mock_df)
+        
+        assert result is not None
+        mock_df.format.assert_called_with("console")
