@@ -2,6 +2,12 @@ import pytest
 from unittest.mock import MagicMock, patch
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.types import StructType, StringType
+from datetime import datetime, timedelta
+import pytz
+import os
+import sys
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from src.logic import (
     create_spark_session_logic,
     read_stream_logic,
@@ -9,8 +15,6 @@ from src.logic import (
     aggregate_ohlc_logic,
     calculate_termination_time_logic
 )
-from datetime import datetime, timedelta
-import pytz
 
 # Schema fixture
 @pytest.fixture
