@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 from pyspark.sql import SparkSession
 from pyspark.sql import Row
 from pyspark.sql.types import StructType, StringType, DoubleType, TimestampType
-from pyspark.sql.functions import from_json, col, to_timestamp, concat
+from pyspark.sql.functions import to_json, col, to_timestamp, concat
 from datetime import datetime, timedelta
 import pytz
 from src.logic import (
@@ -73,7 +73,7 @@ def test_read_stream_logic(spark_session):
         mock_stream_reader.option.assert_any_call("kafka.bootstrap.servers", kafka_url)
         mock_stream_reader.option.assert_any_call("subscribe", tick_topic)
         mock_stream_reader.load.assert_called_once()
-        
+
 def test_add_candle_info_logic(spark_session):
     schema = StructType() \
         .add("종목코드", StringType()) \
