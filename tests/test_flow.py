@@ -38,8 +38,9 @@ def test_read_stream_logic(spark_session):
         schema=schema
     )
 
-    # Use mock.patch to mock the readStream method instead of setting it directly
-    with mock.patch.object(spark_session, 'readStream', return_value=mock_df):
+    with mock.patch.object(spark_session.readStream, 'format') as mock_format:
+        mock_format.return_value.load.return_value = mock_df
+
         df = read_stream_logic(spark_session, kafka_url, tick_topic, schema)
 
         assert df is not None
