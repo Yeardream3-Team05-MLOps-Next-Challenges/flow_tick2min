@@ -32,21 +32,20 @@ def test_read_stream_logic(spark_session):
     kafka_url = "mock_kafka_url"
     tick_topic = "mock_tick_topic"
 
-    # Mocking the Spark DataFrame API
+    # Mocking a DataFrame
     mock_df = spark_session.createDataFrame(
         [Row(종목코드="005930", 현재가="50000", 현재시간="093000", 날짜="20231018")],
         schema=schema
     )
 
-    # Mock the readStream method
-    spark_session.readStream = MagicMock(return_value=mock_df)
+    # Use mock.patch to mock the readStream method instead of setting it directly
+    with mock.patch.object(spark_session, 'readStream', return_value=mock_df):
+        df = read_stream_logic(spark_session, kafka_url, tick_topic, schema)
 
-    df = read_stream_logic(spark_session, kafka_url, tick_topic, schema)
-
-    assert df is not None
-    assert df.count() == 1
-    assert "종목코드" in df.columns
-
+        assert df is not None
+        assert df.count() == 1
+        assert "종목코드" in df.columns
+        
 def test_add_candle_info_logic(spark_session):
     schema = StructType() \
         .add("종목코드", StringType()) \
