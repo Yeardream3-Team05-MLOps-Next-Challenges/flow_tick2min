@@ -30,56 +30,49 @@ def test_read_stream_logic(spark_session):
         .add("현재시간", StringType()) \
         .add("날짜", StringType())
 
-    # 테스트 데이터와 설정
     kafka_url = "mock_kafka_url"
     tick_topic = "mock_tick_topic"
 
-    # 중간 DataFrame들 생성
-    raw_kafka_df = spark_session.createDataFrame(
-        [("{'종목코드':'005930','현재가':'50000','현재시간':'093000','날짜':'20231018'}",)],
-        ["value"]
-    )
-    
-    parsed_df = spark_session.createDataFrame(
+    # 최종적으로 기대하는 결과 DataFrame 생성
+    mock_df = spark_session.createDataFrame(
         [("005930", "50000", "093000", "20231018")],
         ["종목코드", "현재가", "현재시간", "날짜"]
     )
-
-    final_df = parsed_df \
+    mock_df = mock_df \
         .withColumn("timestamp", to_timestamp(concat(col("날짜"), col("현재시간")), "yyyyMMddHHmmss")) \
         .withColumn("price", col("현재가").cast(DoubleType()))
 
-    # Mock the stream reader
-    mock_reader = MagicMock()
-    mock_reader.format.return_value = mock_reader
-    mock_reader.option.return_value = mock_reader
-    mock_reader.load.return_value = raw_kafka_df
+    # DataStreamReader 모킹
+    mock_stream_reader = MagicMock()
+    mock_stream_reader.format.return_value = mock_stream_reader
+    mock_stream_reader.option.return_value = mock_stream_reader
+    mock_stream_reader.load.return_value = mock_df \
+        .select(to_json(struct("*")).alias("value"))  # Kafka 형식으로 변환
 
-    # Patch both readStream and the necessary transformations
-    with mock.patch.object(spark_session, 'readStream', new_callable=mock.PropertyMock) as mock_read_stream:
-        mock_read_stream.return_value = mock_reader
+    # readStream 프로퍼티 모킹
+    with mock.patch('pyspark.sql.SparkSession.readStream', new_callable=PropertyMock) as mock_read_stream:
+        mock_read_stream.return_value = mock_stream_reader
         
-        # Execute the function
+        # 함수 실행
         result_df = read_stream_logic(spark_session, kafka_url, tick_topic, schema)
-
-        # Verify the basic structure
+        
+        # 검증
         assert result_df is not None
         assert "종목코드" in result_df.columns
         assert "timestamp" in result_df.columns
         assert "price" in result_df.columns
-
-        # Verify the Kafka configuration
-        mock_reader.format.assert_called_once_with("kafka")
-        mock_reader.option.assert_any_call("kafka.bootstrap.servers", kafka_url)
-        mock_reader.option.assert_any_call("subscribe", tick_topic)
-        mock_reader.load.assert_called_once()
-
-        # Check the first row values (if needed)
+        
+        # 값 검증
         first_row = result_df.first()
-        assert first_row is not None
         assert first_row["종목코드"] == "005930"
         assert first_row["price"] == 50000.0
-
+        
+        # Kafka 설정 검증
+        mock_stream_reader.format.assert_called_once_with("kafka")
+        mock_stream_reader.option.assert_any_call("kafka.bootstrap.servers", kafka_url)
+        mock_stream_reader.option.assert_any_call("subscribe", tick_topic)
+        mock_stream_reader.load.assert_called_once()
+        
 def test_add_candle_info_logic(spark_session):
     schema = StructType() \
         .add("종목코드", StringType()) \
