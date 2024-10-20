@@ -1,10 +1,10 @@
 import pytest
 from unittest import mock
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, PropertyMock
 from pyspark.sql import SparkSession
 from pyspark.sql import Row
 from pyspark.sql.types import StructType, StringType, DoubleType, TimestampType
-from pyspark.sql.functions import to_json, col, to_timestamp, concat
+from pyspark.sql.functions import to_json, col, to_timestamp, concat, struct
 from datetime import datetime, timedelta
 import pytz
 from src.logic import (
@@ -48,7 +48,7 @@ def test_read_stream_logic(spark_session):
     mock_stream_reader.format.return_value = mock_stream_reader
     mock_stream_reader.option.return_value = mock_stream_reader
     mock_stream_reader.load.return_value = mock_df \
-        .select(to_json(struct("*")).alias("value"))  # Kafka 형식으로 변환
+        .select(to_json(struct(*mock_df.columns)).alias("value"))  # Kafka 형식으로 변환
 
     # readStream 프로퍼티 모킹
     with mock.patch('pyspark.sql.SparkSession.readStream', new_callable=PropertyMock) as mock_read_stream:
