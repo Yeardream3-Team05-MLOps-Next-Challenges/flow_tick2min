@@ -13,7 +13,7 @@ if __name__ == "__main__":
         work_queue_name="docker-agent",
         image=DeploymentImage(
             name="hun-tick2min",
-            tag="0.4.0",
+            tag=os.getenv("VERSION"),
             dockerfile="Dockerfile",
             platform="linux/arm64",
             buildargs={
