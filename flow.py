@@ -1,10 +1,10 @@
 from prefect import flow, task, get_run_logger
 from pyspark.sql import SparkSession, DataFrame
-from pyspark.sql.types import StructType
+from pyspark.sql.types import StructType, StringType
 import os
 import logging
 
-# src 폴더의 logic.py에서 함수 임포트
+from src.logger import get_logger, setup_logging
 from src.logic import (
     create_spark_session_logic,
     read_stream_logic,
@@ -120,8 +120,10 @@ def await_termination(spark: SparkSession, termination_time: float):
         spark (SparkSession): Spark 세션 객체.
         termination_time (float): 종료 시간까지의 초 단위 남은 시간.
     """
+    logger = get_logger()
+
     spark.streams.awaitAnyTermination(timeout=int(termination_time))
-    logging.info("Termination time reached or streaming stopped.")
+    logger.info("Termination time reached or streaming stopped.")
 
 @task(name="Stop Streaming")
 def stop_streaming(spark: SparkSession):
@@ -131,9 +133,11 @@ def stop_streaming(spark: SparkSession):
     Args:
         spark (SparkSession): Spark 세션 객체.
     """
+    logger = get_logger()
+
     for query in spark.streams.active:
         query.stop()
-    logging.info("All streaming queries stopped.")
+    logger.info("All streaming queries stopped.")
 
 @task(name="Stop Spark Session")
 def stop_spark_session(spark: SparkSession):
@@ -143,14 +147,17 @@ def stop_spark_session(spark: SparkSession):
     Args:
         spark (SparkSession): Spark 세션 객체.
     """
+    logger = get_logger()
+    
     spark.stop()
-    logging.info("Spark session stopped.")
+    logger.info("Spark session stopped.")
 
 @flow
 def hun_tick2min_flow():
     """
     전체 데이터 처리 플로우를 정의하는 Prefect 플로우.
     """
+    setup_logging()
     logger = get_run_logger()
 
     spark_url = os.getenv('SPARK_URL', 'default_url')
