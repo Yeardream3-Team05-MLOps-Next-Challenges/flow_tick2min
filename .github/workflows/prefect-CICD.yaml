@@ -30,19 +30,28 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
 
-      - name: Prefect Deploy
+      - name: Set up Poetry
+        run: |
+          pip install poetry
+          poetry config virtualenvs.create false
+          poetry install --no-root
+             
+      - name: Run Docker container and Deploy
         env:
           VERSION: ${{ steps.get_version.outputs.VERSION }}
+          LOGGING_LEVEL: ${{ vars.LOGGING_LEVEL }}
           PREFECT_API_URL: ${{ secrets.PREFECT_API_URL }}
           PREFECT_DEFAULT_DOCKER_BUILD_NAMESPACE: ${{ secrets.PREFECT_DOCKER_NAMESPACE }}
           KAFKA_URL: ${{ secrets.KAFKA_URL }} 
           SPARK_URL: ${{ secrets.SPARK_URL }} 
           TICK_TOPIC: ${{ vars.TICK_TOPIC }} 
           MIN_TOPIC: ${{ vars.MIN_TOPIC }} 
-        run: |
-          pip install -r requirements.txt
-          python deploy.py
+        run: python deploy.py
 
       - name: action-slack
         uses: 8398a7/action-slack@v3
