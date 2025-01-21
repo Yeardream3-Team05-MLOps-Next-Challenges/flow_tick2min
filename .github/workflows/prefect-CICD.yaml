@@ -41,7 +41,7 @@ jobs:
           poetry config virtualenvs.create false
           poetry install --no-root
              
-      - name: Run Docker container and Deploy
+      - name: Run prefect Deploy
         env:
           VERSION: ${{ steps.get_version.outputs.VERSION }}
           LOGGING_LEVEL: ${{ vars.LOGGING_LEVEL }}
