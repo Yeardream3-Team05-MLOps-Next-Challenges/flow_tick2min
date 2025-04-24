@@ -144,11 +144,15 @@ def test_aggregate_ohlc_logic(spark_session):
         .add("종목코드", StringType()) \
         .add("price", DoubleType()) \
         .add("timestamp", TimestampType())
+    
+    # 테스트 시간을 명시적으로 설정
+    kst = pytz.timezone('Asia/Seoul')
+    base_time = datetime(2024, 4, 24, 10, 2, 30, tzinfo=kst) # 예: 10시 2분 30초
 
     # 테스트 데이터 생성: 동일한 5분 윈도우 내의 두 가격 데이터
     data = [
-        Row(종목코드="005930", price=50000.0, timestamp=datetime.now() - timedelta(minutes=1)),
-        Row(종목코드="005930", price=50500.0, timestamp=datetime.now())
+        Row(종목코드="005930", price=50000.0, timestamp=base_time - timedelta(minutes=1)),
+        Row(종목코드="005930", price=50500.0, timestamp=base_time)
     ]
     df = spark_session.createDataFrame(data, schema)
 
