@@ -53,20 +53,20 @@ def test_read_stream_logic(spark_session):
     schema = StructType() \
         .add("종목코드", StringType()) \
         .add("현재가", StringType()) \
-        .add("현재시간", StringType()) \
-        .add("날짜", StringType())
+        .add("체결일시", StringType()) \
+        .add("수신시간", StringType())
 
     kafka_url = "mock_kafka_url"  # 모의 Kafka URL
     tick_topic = "mock_tick_topic"  # 모의 Kafka 토픽
 
     # 기대하는 결과를 가지는 모의 DataFrame 생성
     mock_df = spark_session.createDataFrame(
-        [("005930", "50000", "093000", "20231018")],
-        ["종목코드", "현재가", "현재시간", "날짜"]
+        [("005930", "50000", "20250424083001", "2025-04-24T08:30:01.445319+09:00")],
+        ["종목코드", "현재가", "체결일시", "수신시간"]
     )
     # timestamp와 price 컬럼 추가
     mock_df = mock_df \
-        .withColumn("timestamp", to_timestamp(concat(col("날짜"), col("현재시간")), "yyyyMMddHHmmss")) \
+        .withColumn("timestamp", to_timestamp(col("체결일시"), "yyyyMMddHHmmss")) \
         .withColumn("price", col("현재가").cast(DoubleType()))
 
     # DataStreamReader를 모킹하여 Kafka 스트림 대신 모의 DataFrame을 반환하도록 설정

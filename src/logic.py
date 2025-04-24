@@ -48,7 +48,7 @@ def read_stream_logic(spark: SparkSession, kafka_url: str, tick_topic: str, sche
         .select(from_json(col("value"), schema).alias("data")) \
         .select("data.*")
 
-    df = df.withColumn("timestamp", to_timestamp(concat(col("날짜"), col("현재시간")), "yyyyMMddHHmmss")) \
+    df = df.withColumn("timestamp", to_timestamp(col("체결일시"), "yyyyMMddHHmmss")) \
         .withColumn("price", col("현재가").cast(DoubleType()))
 
     return df

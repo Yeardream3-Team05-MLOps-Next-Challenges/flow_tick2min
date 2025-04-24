@@ -175,8 +175,8 @@ def hun_tick2min_flow():
     schema = StructType() \
         .add("종목코드", StringType()) \
         .add("현재가", StringType()) \
-        .add("현재시간", StringType()) \
-        .add("날짜", StringType())
+        .add("체결일시", StringType()) \
+        .add("수신시간", StringType())
 
     df_stream = read_stream(spark, kafka_url, tick_topic, schema)
     ohlc_df = aggregate_ohlc(df_stream)
